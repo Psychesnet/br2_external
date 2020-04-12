@@ -1,0 +1,5 @@
+menu "Bits of example"
+source "$BR2_EXTERNAL_PROJECT_PATH/example/hello/Config.in"
+source "$BR2_EXTERNAL_PROJECT_PATH/example/script/Config.in"
+source "$BR2_EXTERNAL_PROJECT_PATH/example/libfoo/Config.in"
+endmenu
