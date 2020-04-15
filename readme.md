@@ -2,7 +2,7 @@
 
 * structure
 
-  ```bash
+  ```txt
   +-- board/
   |   +-- <company>/
   |       +-- <boardname>/
@@ -37,6 +37,128 @@
   +-- Config.in (For make menuconfig, EX: source "$BR2_EXTERNAL_BAR_42_PATH/package/package1/Config.in")
   +-- external.mk (For makefile logic, EX: include $(sort $(wildcard $(BR2_EXTERNAL_BAR_42_PATH)/package/*/*.mk)))
   +-- external.desc (Each folder can define xxx.desc file to annonce name(you should use upper letter) and desc, then you will have BR2_EXTERNAL_$(NAME)_PATH and BR2_EXTERNAL_$(NAME)_DESC)
+  
+  
+  
+  /path/to/br2-ext-tree/
+  |- external.desc
+  |     |name: BAR_42
+  |     |desc: Example br2-external tree
+  |     `----
+  |
+  |- Config.in
+  |     |source "$BR2_EXTERNAL_BAR_42_PATH/toolchain/toolchain-external-mine/Config.in.options"
+  |     |source "$BR2_EXTERNAL_BAR_42_PATH/package/pkg-1/Config.in"
+  |     |source "$BR2_EXTERNAL_BAR_42_PATH/package/pkg-2/Config.in"
+  |     |source "$BR2_EXTERNAL_BAR_42_PATH/package/my-jpeg/Config.in"
+  |     |
+  |     |config BAR_42_FLASH_ADDR
+  |     |    hex "my-board flash address"
+  |     |    default 0x10AD
+  |     `----
+  |
+  |- external.mk
+  |     |include $(sort $(wildcard $(BR2_EXTERNAL_BAR_42_PATH)/package/*/*.mk))
+  |     |include $(sort $(wildcard $(BR2_EXTERNAL_BAR_42_PATH)/toolchain/*/*.mk))
+  |     |
+  |     |flash-my-board:
+  |     |    $(BR2_EXTERNAL_BAR_42_PATH)/board/my-board/flash-image \
+  |     |        --image $(BINARIES_DIR)/image.bin \
+  |     |        --address $(BAR_42_FLASH_ADDR)
+  |     `----
+  |
+  |- package/pkg-1/Config.in
+  |     |config BR2_PACKAGE_PKG_1
+  |     |    bool "pkg-1"
+  |     |    help
+  |     |      Some help about pkg-1
+  |     `----
+  |- package/pkg-1/pkg-1.hash
+  |- package/pkg-1/pkg-1.mk
+  |     |PKG_1_VERSION = 1.2.3
+  |     |PKG_1_SITE = /some/where/to/get/pkg-1
+  |     |PKG_1_LICENSE = blabla
+  |     |
+  |     |define PKG_1_INSTALL_INIT_SYSV
+  |     |    $(INSTALL) -D -m 0755 $(PKG_1_PKGDIR)/S99my-daemon \
+  |     |                          $(TARGET_DIR)/etc/init.d/S99my-daemon
+  |     |endef
+  |     |
+  |     |$(eval $(autotools-package))
+  |     `----
+  |- package/pkg-1/S99my-daemon
+  |
+  |- package/pkg-2/Config.in
+  |- package/pkg-2/pkg-2.hash
+  |- package/pkg-2/pkg-2.mk
+  |
+  |- provides/jpeg.in
+  |     |config BR2_PACKAGE_MY_JPEG
+  |     |    bool "my-jpeg"
+  |     `----
+  |- package/my-jpeg/Config.in
+  |     |config BR2_PACKAGE_PROVIDES_JPEG
+  |     |    default "my-jpeg" if BR2_PACKAGE_MY_JPEG
+  |     `----
+  |- package/my-jpeg/my-jpeg.mk
+  |     |# This is a normal package .mk file
+  |     |MY_JPEG_VERSION = 1.2.3
+  |     |MY_JPEG_SITE = https://example.net/some/place
+  |     |MY_JPEG_PROVIDES = jpeg
+  |     |$(eval $(autotools-package))
+  |     `----
+  |
+  |- provides/toolchains.in
+  |     |config BR2_TOOLCHAIN_EXTERNAL_MINE
+  |     |    bool "my custom toolchain"
+  |     |    depends on BR2_some_arch
+  |     |    select BR2_INSTALL_LIBSTDCPP
+  |     `----
+  |- toolchain/toolchain-external-mine/Config.in.options
+  |     |if BR2_TOOLCHAIN_EXTERNAL_MINE
+  |     |config BR2_TOOLCHAIN_EXTERNAL_PREFIX
+  |     |    default "arch-mine-linux-gnu"
+  |     |config BR2_PACKAGE_PROVIDES_TOOLCHAIN_EXTERNAL
+  |     |    default "toolchain-external-mine"
+  |     |endif
+  |     `----
+  |- toolchain/toolchain-external-mine/toolchain-external-mine.mk
+  |     |TOOLCHAIN_EXTERNAL_MINE_SITE = https://example.net/some/place
+  |     |TOOLCHAIN_EXTERNAL_MINE_SOURCE = my-toolchain.tar.gz
+  |     |$(eval $(toolchain-external-package))
+  |     `----
+  |
+  |- linux/Config.ext.in
+  |     |config BR2_LINUX_KERNEL_EXT_EXAMPLE_DRIVER
+  |     |    bool "example-external-driver"
+  |     |    help
+  |     |      Example external driver
+  |     |---
+  |- linux/linux-ext-example-driver.mk
+  |
+  |- configs/my-board_defconfig
+  |     |BR2_GLOBAL_PATCH_DIR="$(BR2_EXTERNAL_BAR_42_PATH)/patches/"
+  |     |BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_BAR_42_PATH)/board/my-board/overlay/"
+  |     |BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_BAR_42_PATH)/board/my-board/post-image.sh"
+  |     |BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="$(BR2_EXTERNAL_BAR_42_PATH)/board/my-board/kernel.config"
+  |     `----
+  |
+  |- patches/linux/0001-some-change.patch
+  |- patches/linux/0002-some-other-change.patch
+  |- patches/busybox/0001-fix-something.patch
+  |
+  |- board/my-board/kernel.config
+  |- board/my-board/overlay/var/www/index.html
+  |- board/my-board/overlay/var/www/my.css
+  |- board/my-board/flash-image
+  `- board/my-board/post-image.sh
+        |#!/bin/sh
+        |generate-my-binary-image \
+        |    --root ${BINARIES_DIR}/rootfs.tar \
+        |    --kernel ${BINARIES_DIR}/zImage \
+        |    --dtb ${BINARIES_DIR}/my-board.dtb \
+        |    --output ${BINARIES_DIR}/image.bin
+        `----
   ```
 
 * copy a sample config to your folder 
